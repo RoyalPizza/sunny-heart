@@ -201,7 +201,7 @@ Rigidbody2D:
   m_Mass: 1
   m_LinearDamping: 0
   m_AngularDamping: 0.05
-  m_GravityScale: 1
+  m_GravityScale: 4
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -262,23 +262,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _rigidbody2D: {fileID: 387867290}
-  _gravity: 60
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
   groundCheckRadius: 0.2
   footTransform: {fileID: 183603238}
   _walkSpeed: 7
-  _walkAccelerationSpeed: 7
-  _walkDecelerationSpeed: 2
-  _airMoveSpeed: 0.2
-  _maxAirMoveVelocity: 5
-  _jumpForce: 20
-  _jumpHangTime: 1
-  _maxFallVelocity: 10
-  _dashForce: 15
-  _dashDuration: 0.2
-  _dashCooldown: 3
+  _walkAccelerationSpeed: 60
+  _walkDecelerationSpeed: 50
+  _walkAfterLandingBoost: 2
+  _airWalkForce: 2
+  _airBrakeForce: 12
+  _jumpForce: 15
+  _airJumpExtraForce: 5
+  _airBrakeExtraForceAfterJump: 12
+  _airJumpsAllowedCount: 2
+  _airJumpCooldownTime: 0.2
+  _dashForce: 20
+  _dashCooldownTime: 3
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
