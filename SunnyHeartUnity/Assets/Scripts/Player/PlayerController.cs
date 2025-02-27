@@ -1,12 +1,9 @@
 using Pizza.Runtime;
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Pizza
 {
-    public enum PlayerState { Idle, Walk, Jump, Fall, Dash }
-
     // TODO
     // - wall jump?
     // - fix air jump height
@@ -90,7 +87,7 @@ namespace Pizza
         private float _dashCooldown;
 
         private string _lastAnimStateName;
-        private PlayerState _currentState;
+        private PlayerStateEnum _currentState;
 
         private const string IDLE_ANIM = "Idle";
         private const string WALK_ANIM = "Walk";
@@ -264,37 +261,39 @@ namespace Pizza
         private void UpdateState()
         {
             if (_dashTriggered)
-                _currentState = PlayerState.Dash;
+                _currentState = PlayerStateEnum.Dash;
             else if (_jumpTriggered && _rigidbody2D.linearVelocityY > 0f)
-                _currentState = PlayerState.Jump;
+                _currentState = PlayerStateEnum.Jump;
             // TODO: think on if we care about this or not
             //else if (_isGrounded && _rigidbody2D.linearVelocityY > 1f)
             //    PizzaLogger.LogWarning($"PlayerController::UpdateAnimator found a time where we are mid air going up, but did not jump");
             else if (!_isGrounded && _rigidbody2D.linearVelocityY < 0f)
-                _currentState = PlayerState.Fall;
+                _currentState = PlayerStateEnum.Fall;
             else if (_movementInput.x != 0f && _isGrounded)
-                _currentState = PlayerState.Walk;
+                _currentState = PlayerStateEnum.Walk;
             else if (_movementInput.x == 0f && _isGrounded)
-                _currentState = PlayerState.Idle;
+                _currentState = PlayerStateEnum.Idle;
+
+            PlayerState.shared.State = _currentState;
         }
 
         private void UpdateAnimator()
         {
             switch (_currentState)
             {
-                case PlayerState.Idle:
+                case PlayerStateEnum.Idle:
                     PlayAnimatorAnim(IDLE_ANIM);
                     break;
-                case PlayerState.Walk:
+                case PlayerStateEnum.Walk:
                     PlayAnimatorAnim(WALK_ANIM);
                     break;
-                case PlayerState.Jump:
+                case PlayerStateEnum.Jump:
                     PlayAnimatorAnim(JUMP_ANIM);
                     break;
-                case PlayerState.Fall:
+                case PlayerStateEnum.Fall:
                     PlayAnimatorAnim(FALL_ANIM);
                     break;
-                case PlayerState.Dash:
+                case PlayerStateEnum.Dash:
                     PlayAnimatorAnim(ROLL_ANIM);
                     break;
                 default:
