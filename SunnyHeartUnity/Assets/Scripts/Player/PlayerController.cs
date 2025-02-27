@@ -178,10 +178,15 @@ namespace Pizza
                     _jumpAllowed = false;
                     _airJumpCooldown = _airJumpCooldownTime;
                 }
-                else if (_movementInput.x != 0f && _dashRequested && _dashAllowed)
+                else if (_dashRequested && _dashAllowed)
                 {
-                    // TODO: add dash
-                    float newVelocityX = _rigidbody2D.linearVelocityX + (_dashForce * _movementInput.x);
+                    // player is dashing on ground
+                    float input = _movementInput.x;
+                    if (input == 0f)
+                        input = transform.localEulerAngles.y == 0f ? 1f : -1f;
+
+                    float standingStillBoost = (_rigidbody2D.linearVelocityX == 0f) ? _walkSpeed * 0.5f : 0f;
+                    float newVelocityX = _rigidbody2D.linearVelocityX + ((standingStillBoost) + _dashForce * input);
                     _rigidbody2D.linearVelocityX = newVelocityX;
 
                     _dashTriggered = true;
@@ -197,7 +202,6 @@ namespace Pizza
                     // basically lerp from our current velocity to the target velocity, at the rate of acceleration
                     float newVelocityX = boostForce + Mathf.MoveTowards(_rigidbody2D.linearVelocityX, (_movementInput.x * _walkSpeed) + boostForce, _walkAccelerationSpeed * Time.fixedDeltaTime);
                     _rigidbody2D.linearVelocityX = newVelocityX;
-                    PizzaLogger.Log($"newVelocityX: {newVelocityX}");
                 }
                 else if (_movementInput.x == 0f)
                 {
@@ -229,10 +233,14 @@ namespace Pizza
                     _airJumpCooldown = _airJumpCooldownTime;
                 }
 
-                if (_movementInput.x != 0f && _dashRequested && _dashAllowed)
+                if (_dashRequested && _dashAllowed)
                 {
                     // player is dashing mid air
-                    float newVelocityX = _rigidbody2D.linearVelocityX + (_airDashForce * _movementInput.x);
+                    float input = _movementInput.x;
+                    if (input == 0f)
+                        input = transform.localEulerAngles.y == 0f ? 1f : -1f;
+                    
+                    float newVelocityX = _rigidbody2D.linearVelocityX + (_airDashForce * input);
                     _rigidbody2D.linearVelocityX = newVelocityX;
 
                     _dashTriggered = true;

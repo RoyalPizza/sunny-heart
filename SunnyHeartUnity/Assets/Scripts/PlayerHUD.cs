@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace Pizza
 {
-    public class PlayerHUD : PizzaMonoBehaviour
+    public sealed class PlayerHUD : PizzaMonoBehaviour
     {
         [Header("Health Bar")]
         [SerializeField] private Image[] _healthIcons;
