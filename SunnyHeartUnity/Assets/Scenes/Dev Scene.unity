@@ -262,6 +262,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _rigidbody2D: {fileID: 387867290}
+  _animator: {fileID: 1345181016}
   groundLayer:
     serializedVersion: 2
     m_Bits: 64

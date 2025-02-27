@@ -5,11 +5,20 @@ using UnityEngine.InputSystem;
 
 namespace Pizza
 {
+    public enum PlayerState { Idle, Walk, Jump, Fall, Dash }
+
+    // TODO
+    // - wall jump?
+    // - fix air jump height
+    // - work on bunny hop (if you land on the ground and jump too late, you lose all momentum. The window is too tight)
+
     public sealed class PlayerController : PizzaMonoBehaviour
     {
         [Header("Components")]
         [SerializeField]
         private Rigidbody2D _rigidbody2D;
+        [SerializeField]
+        private Animator _animator;
 
         [Header("Ground Check")]
         [SerializeField, Tooltip("Set this to any layer that objects reside on to be considered grounded.")]
@@ -50,6 +59,8 @@ namespace Pizza
         [Header("Dash Config")]
         [SerializeField, Min(0f)]
         private float _dashForce = 20;
+        [SerializeField, Min(0f)]
+        private float _airDashForce = 10;
         [SerializeField, Min(0f), Tooltip("The time in seconds before the player can dash again.")]
         private float _dashCooldownTime = 3f;
 
@@ -58,7 +69,7 @@ namespace Pizza
         InputAction _jumpAction;
         InputAction _sprintAction;
         InputAction _dashAction;
-        
+
         private Vector2 _movementInput;
         private bool _jumpInput;
         private bool _sprintInput;
@@ -75,7 +86,18 @@ namespace Pizza
 
         private bool _dashRequested;
         private bool _dashAllowed;
+        private bool _dashTriggered;
         private float _dashCooldown;
+
+        private string _lastAnimStateName;
+        private PlayerState _currentState;
+
+        private const string IDLE_ANIM = "Idle";
+        private const string WALK_ANIM = "Walk";
+        private const string JUMP_ANIM = "Jump";
+        private const string FALL_ANIM = "Fall";
+        private const string LAND_ANIM = "Land";
+        private const string ROLL_ANIM = "Roll";
 
         private void Awake()
         {
@@ -111,11 +133,19 @@ namespace Pizza
             else if (_dashCooldown <= 0f)
                 _dashAllowed = true;
 
+            // handle dash triggered
+            // TODO: this is not the best solution. We basically use the cooldown to check if a half second has passed
+            if (_dashTriggered && _dashCooldown < (_dashCooldownTime - 0.35f))
+                _dashTriggered = false;
+
             // always allow rotation
             if (_movementInput.x > 0)
                 transform.rotation = Quaternion.Euler(0, 0, 0);
             else if (_movementInput.x < 0)
                 transform.rotation = Quaternion.Euler(0, 180, 0);
+
+            UpdateState();
+            UpdateAnimator();
         }
 
         private void FixedUpdate()
@@ -133,8 +163,9 @@ namespace Pizza
                 _airJumpsLeft = _airJumpsAllowedCount;
                 _airJumpCooldown = 0f;
 
-                _dashAllowed = true;
-                _dashCooldown = 0f;
+                //_dashTriggered = false;
+                //_dashAllowed = true;
+                //_dashCooldown = 0f;
             }
 
             if (_isGrounded)
@@ -156,6 +187,7 @@ namespace Pizza
                     float newVelocityX = _rigidbody2D.linearVelocityX + (_dashForce * _movementInput.x);
                     _rigidbody2D.linearVelocityX = newVelocityX;
 
+                    _dashTriggered = true;
                     _dashRequested = false;
                     _dashAllowed = false;
                     _dashCooldown = _dashCooldownTime;
@@ -168,12 +200,13 @@ namespace Pizza
                     // basically lerp from our current velocity to the target velocity, at the rate of acceleration
                     float newVelocityX = boostForce + Mathf.MoveTowards(_rigidbody2D.linearVelocityX, (_movementInput.x * _walkSpeed) + boostForce, _walkAccelerationSpeed * Time.fixedDeltaTime);
                     _rigidbody2D.linearVelocityX = newVelocityX;
+                    PizzaLogger.Log($"newVelocityX: {newVelocityX}");
                 }
                 else if (_movementInput.x == 0f)
                 {
                     // basically lerp from our current velocity to 0, at the rate of Deceleration
                     float newVelocityX = Mathf.MoveTowards(_rigidbody2D.linearVelocityX, 0f, _walkDecelerationSpeed * Time.fixedDeltaTime);
-                    _rigidbody2D.linearVelocityX = newVelocityX;
+                    //_rigidbody2D.linearVelocityX = newVelocityX;
                 }
             }
             else
@@ -187,10 +220,10 @@ namespace Pizza
 
                     // add a boost in direction when air jumping (if we are air braking)
                     bool tryingToAirBrake = Mathf.Sign(_movementInput.x) != Mathf.Sign(_rigidbody2D.linearVelocityX);
-                    float extraWalkForce = (tryingToAirBrake) ? (_airBrakeExtraForceAfterJump * _movementInput.x) : 0f;
+                    float extraAirWalkForce = (tryingToAirBrake) ? (_airBrakeExtraForceAfterJump * _movementInput.x) : 0f;
                     // clamp so that if velocity is negative, it doesnt look like we didnt jump
                     float newVelocityY = Mathf.Clamp(_rigidbody2D.linearVelocityY, 0f, _rigidbody2D.linearVelocityY) + _jumpForce + _airJumpExtraForce;
-                    _rigidbody2D.linearVelocity = new Vector2(_rigidbody2D.linearVelocityX + extraWalkForce, newVelocityY);
+                    _rigidbody2D.linearVelocity = new Vector2(_rigidbody2D.linearVelocityX + extraAirWalkForce, newVelocityY);
 
                     _jumpTriggered = true;
                     _jumpRequested = false;
@@ -199,7 +232,18 @@ namespace Pizza
                     _airJumpCooldown = _airJumpCooldownTime;
                 }
 
-                if (_movementInput.x != 0f)
+                if (_movementInput.x != 0f && _dashRequested && _dashAllowed)
+                {
+                    // player is dashing mid air
+                    float newVelocityX = _rigidbody2D.linearVelocityX + (_airDashForce * _movementInput.x);
+                    _rigidbody2D.linearVelocityX = newVelocityX;
+
+                    _dashTriggered = true;
+                    _dashRequested = false;
+                    _dashAllowed = false;
+                    _dashCooldown = _dashCooldownTime;
+                }
+                else if (_movementInput.x != 0f)
                 {
                     if (Mathf.Sign(_movementInput.x) != Mathf.Sign(_rigidbody2D.linearVelocityX))
                     {
@@ -217,6 +261,59 @@ namespace Pizza
             }
         }
 
+        private void UpdateState()
+        {
+            if (_dashTriggered)
+                _currentState = PlayerState.Dash;
+            else if (_jumpTriggered && _rigidbody2D.linearVelocityY > 0f)
+                _currentState = PlayerState.Jump;
+            // TODO: think on if we care about this or not
+            //else if (_isGrounded && _rigidbody2D.linearVelocityY > 1f)
+            //    PizzaLogger.LogWarning($"PlayerController::UpdateAnimator found a time where we are mid air going up, but did not jump");
+            else if (!_isGrounded && _rigidbody2D.linearVelocityY < 0f)
+                _currentState = PlayerState.Fall;
+            else if (_movementInput.x != 0f && _isGrounded)
+                _currentState = PlayerState.Walk;
+            else if (_movementInput.x == 0f && _isGrounded)
+                _currentState = PlayerState.Idle;
+        }
+
+        private void UpdateAnimator()
+        {
+            switch (_currentState)
+            {
+                case PlayerState.Idle:
+                    PlayAnimatorAnim(IDLE_ANIM);
+                    break;
+                case PlayerState.Walk:
+                    PlayAnimatorAnim(WALK_ANIM);
+                    break;
+                case PlayerState.Jump:
+                    PlayAnimatorAnim(JUMP_ANIM);
+                    break;
+                case PlayerState.Fall:
+                    PlayAnimatorAnim(FALL_ANIM);
+                    break;
+                case PlayerState.Dash:
+                    PlayAnimatorAnim(ROLL_ANIM);
+                    break;
+                default:
+                    PlayAnimatorAnim(IDLE_ANIM);
+                    break;
+
+            }
+            ;
+        }
+
+        private void PlayAnimatorAnim(string animName)
+        {
+            if (_lastAnimStateName == animName)
+                return;
+
+            _lastAnimStateName = animName;
+            _animator.Play(animName);
+        }
+
         private void OnGUI()
         {
             var labelStyle = new GUIStyle(GUI.skin.label)
@@ -227,6 +324,7 @@ namespace Pizza
             GUILayout.BeginArea(new Rect(10, 10, 500, 100));
             GUILayout.Label($"Velocity: {_rigidbody2D.linearVelocity}", labelStyle);
             //GUILayout.Label($"Grounded: {_isGrounded}", labelStyle);
+            //GUILayout.Label($"_dashTriggered: {_dashTriggered}", labelStyle);
             //GUILayout.Label($"_jumpTriggered: {_jumpTriggered}", labelStyle);
             //GUILayout.Label($"_jumpHang: {_jumpHang}", labelStyle);
             //GUILayout.Label($"_jumpHangTimeLeft: {_jumpHangTimeLeft}", labelStyle);
